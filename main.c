@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <syslog.h>
 #include <fcntl.h>
@@ -6,6 +5,52 @@
 #include <sys/mman.h>
 
 #include <bcm_host.h>
+
+static inline void rotate90_16bpp_interlace(uint16_t *src, register uint16_t *dst, int src_width, int src_height, uint8_t interlace)
+{
+    int i, j;
+    int j_inc, j_init;
+    
+    if(interlace == 1)
+    {
+        //do odds
+        j_inc = 2;
+        j_init = 1;
+    }
+    else if(interlace == 2)
+    {
+        //do evens
+        j_inc = 2;
+        j_init = 0;
+    }
+    else
+    {
+        //no interlace
+        j_init = 0;
+        j_inc = 1;
+    }
+    
+    for(i=0; i<src_width; i++)
+    {
+        for(j=j_init; j<src_height; j+=j_inc)
+        {
+            *(dst+((src_height*i)+j)) = *(src+((src_height-1-j)*src_width) + i);
+        }
+    }
+}
+
+static inline void rotate90_16bpp(uint16_t *src, register uint16_t *dst, int src_width, int src_height)
+{
+    int i, j;
+    
+    for(i=0; i<src_width; i++)
+    {
+        for(j=0; j<src_height; j++)
+        {
+            *(dst+((src_height*i)+j)) = *(src+((src_height-1-j)*src_width) + i);
+        }
+    }
+}
 
 int process() {
     DISPMANX_DISPLAY_HANDLE_T display;
@@ -17,13 +62,16 @@ int process() {
     int ret;
     int fbfd = 0;
     char *fbp = 0;
-
+    uint8_t portrait_mode_pri = 0;
+    uint8_t portrait_mode_sec = 0;
+    uint8_t rotate_screen = 0;
+    
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
-
-
+    
+    
     bcm_host_init();
-
+    
     display = vc_dispmanx_display_open(0);
     if (!display) {
         syslog(LOG_ERR, "Unable to open primary display");
@@ -35,8 +83,9 @@ int process() {
         return -1;
     }
     syslog(LOG_INFO, "Primary display is %d x %d", display_info.width, display_info.height);
-
-
+    //printf("Primary display is %d x %d\n", display_info.width, display_info.height);
+    
+    
     fbfd = open("/dev/fb1", O_RDWR);
     if (fbfd == -1) {
         syslog(LOG_ERR, "Unable to open secondary display");
@@ -50,17 +99,45 @@ int process() {
         syslog(LOG_ERR, "Unable to get secondary display information");
         return -1;
     }
-
-    syslog(LOG_INFO, "Second display is %d x %d %dbps\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
-
-    screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, vinfo.xres, vinfo.yres, &image_prt);
-    if (!screen_resource) {
-        syslog(LOG_ERR, "Unable to create screen buffer");
-        close(fbfd);
-        vc_dispmanx_display_close(display);
-        return -1;
+    
+    syslog(LOG_INFO, "Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+    //printf("Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+    
+    //if vinfo.xres < vinfo.yres, then we are in portrait mode
+    if(vinfo.xres < vinfo.yres)
+        portrait_mode_sec = 1;
+    
+    if(display_info.width < display_info.height)
+        portrait_mode_pri = 1;
+    
+    if(portrait_mode_sec != portrait_mode_pri)
+    {
+        rotate_screen = 1;
+        syslog(LOG_INFO, "Set rotate_screen mode on.\n");
+        //printf("Set rotate_screen mode on.\n");
     }
-
+    
+    if(rotate_screen)
+    {
+        screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, vinfo.yres, vinfo.xres, &image_prt);
+        if (!screen_resource) {
+            syslog(LOG_ERR, "Unable to create screen buffer");
+            close(fbfd);
+            vc_dispmanx_display_close(display);
+            return -1;
+        }
+    }
+    else
+    {
+        screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, vinfo.xres, vinfo.yres, &image_prt);
+        if (!screen_resource) {
+            syslog(LOG_ERR, "Unable to create screen buffer");
+            close(fbfd);
+            vc_dispmanx_display_close(display);
+            return -1;
+        }
+    }
+    
     fbp = (char*) mmap(0, finfo.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
     if (fbp <= 0) {
         syslog(LOG_ERR, "Unable to create mamory mapping");
@@ -69,15 +146,52 @@ int process() {
         vc_dispmanx_display_close(display);
         return -1;
     }
-
-    vc_dispmanx_rect_set(&rect1, 0, 0, vinfo.xres, vinfo.yres);
-
-    while (1) {
-        ret = vc_dispmanx_snapshot(display, screen_resource, 0);
-        vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
-        usleep(25 * 1000);
+    
+    
+    if(rotate_screen)
+    {
+        //uint8_t interlace = 1;
+        vc_dispmanx_rect_set(&rect1, 0, 0, vinfo.yres, vinfo.xres);
+        
+        void *image_orig = calloc( 1, vinfo.yres * vinfo.xres * vinfo.bits_per_pixel / 8 );
+        //image_rotated = calloc( 1, vinfo.yres * vinfo.xres * vinfo.bits_per_pixel / 8 );
+        if(!image_orig)
+            return -1;
+        
+        //rotate before sending to fb1
+        while (1) {
+            //snapshot the display
+            ret = vc_dispmanx_snapshot(display, screen_resource, 0);
+            
+            //read data from snapshot into image_orig
+            vc_dispmanx_resource_read_data(screen_resource, &rect1, image_orig, vinfo.yres * vinfo.bits_per_pixel / 8);
+            
+            //rotate the data (straight to the fbp [but we could rotate to another buffer and then memcpy])
+            rotate90_16bpp((uint16_t *)image_orig, (uint16_t *)fbp, vinfo.yres, vinfo.xres);
+            
+            /*if(interlace)
+             {
+             rotate90_16bpp_interlace((uint16_t *)image_orig, (uint16_t *)fbp, vinfo.yres, vinfo.xres, 2);
+             }
+             else
+             {
+             rotate90_16bpp_interlace((uint16_t *)image_orig, (uint16_t *)fbp, vinfo.yres, vinfo.xres, 1);
+             }
+             interlace = !interlace;*/
+            
+            usleep(20 * 1000);//sleep N microseconds
+        }
     }
-
+    else
+    {
+        vc_dispmanx_rect_set(&rect1, 0, 0, vinfo.xres, vinfo.yres);
+        while (1) {
+            ret = vc_dispmanx_snapshot(display, screen_resource, 0);
+            vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
+            usleep(25 * 1000);//sleep 25 microseconds (when not rotating)
+        }
+    }
+    
     munmap(fbp, finfo.smem_len);
     close(fbfd);
     ret = vc_dispmanx_resource_delete(screen_resource);
@@ -87,7 +201,7 @@ int process() {
 int main(int argc, char **argv) {
     setlogmask(LOG_UPTO(LOG_DEBUG));
     openlog("fbcp", LOG_NDELAY | LOG_PID, LOG_USER);
-
+    
     return process();
 }
 
