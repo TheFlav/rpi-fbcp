@@ -130,8 +130,8 @@ int process() {
         syslog(LOG_ERR, "Unable to get primary display information");
         return -1;
     }
-    syslog(LOG_INFO, "Primary display is %d x %d", display_info.width, display_info.height);
-    //printf("Primary display is %d x %d\n", display_info.width, display_info.height);
+    syslog(LOG_INFO, "Freeplay-fbcp Primary display is %d x %d", display_info.width, display_info.height);
+    printf("Freeplay-fbcp Primary display is %d x %d\n", display_info.width, display_info.height);
     
     
     fbfd = open("/dev/fb1", O_RDWR);
@@ -148,8 +148,8 @@ int process() {
         return -1;
     }
     
-    syslog(LOG_INFO, "Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
-    //printf("Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+    syslog(LOG_INFO, "Freeplay-fbcp Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+    printf("Freeplay-fbcp Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
     
     //if vinfo.xres < vinfo.yres, then we are in portrait mode
     if(vinfo.xres < vinfo.yres)
@@ -162,7 +162,7 @@ int process() {
     {
         rotate_screen = 1;
         syslog(LOG_INFO, "Set rotate_screen mode on.\n");
-        //printf("Set rotate_screen mode on.\n");
+        printf("Set rotate_screen mode on.\n");
     }
     
     /*if(rotate_screen)

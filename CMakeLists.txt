@@ -9,6 +9,6 @@ include_directories(/opt/vc/include/interface/vmcs_host/linux)
 
 link_directories(/opt/vc/lib)
 
-add_executable(fbcp main.c)
+add_executable(Freeplay-fbcp main.c)
 
-target_link_libraries(fbcp bcm_host)
+target_link_libraries(Freeplay-fbcp bcm_host)
