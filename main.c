@@ -7,7 +7,10 @@
 
 #include <bcm_host.h>
 
+//#define FREEPLAY_USE_MUTEX
+#ifdef FREEPLAY_USE_MUTEX
 #include <pthread.h>
+#endif
 
 DISPMANX_DISPLAY_HANDLE_T display;
 DISPMANX_MODEINFO_T display_info;
@@ -22,7 +25,9 @@ char *fbp = 0;
 struct fb_var_screeninfo vinfo;
 struct fb_fix_screeninfo finfo;
 
+#ifdef FREEPLAY_USE_MUTEX
 pthread_mutex_t g_mtxCritSection;
+#endif
 
 //comment out this next line to remove the Freeplay scaling and rotation functionality
 #define FREEPLAY_SCALE_TO_VIEWPORT
@@ -90,7 +95,9 @@ static inline void copy_16bpp_offset_and_rotate(uint16_t *src, register uint16_t
 }
 
 void copy_screen_scale_to_viewport(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_lock(&g_mtxCritSection);
+#endif
     
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)NULL, NULL);
     
@@ -112,7 +119,9 @@ void copy_screen_scale_to_viewport(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
     
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport, NULL);
     
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_unlock(&g_mtxCritSection);
+#endif
 }
 
 void copy_screen_scale_to_viewport_and_rotate(DISPMANX_UPDATE_HANDLE_T handle, void* arg)
@@ -120,7 +129,9 @@ void copy_screen_scale_to_viewport_and_rotate(DISPMANX_UPDATE_HANDLE_T handle, v
     if(!image_fb_temp)
         return;
     
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_lock(&g_mtxCritSection);
+#endif
     
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)NULL, NULL);
     
@@ -146,14 +157,19 @@ void copy_screen_scale_to_viewport_and_rotate(DISPMANX_UPDATE_HANDLE_T handle, v
     
     
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport_and_rotate, NULL);
+    
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_unlock(&g_mtxCritSection);
+#endif
     
 }
 
 #else
 
 void copy_screen(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_lock(&g_mtxCritSection);
+#endif
     
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)NULL, NULL);
     
@@ -162,7 +178,10 @@ void copy_screen(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
     vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
     
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen, NULL);
+    
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_unlock(&g_mtxCritSection);
+#endif
 }
 
 #endif
@@ -176,7 +195,9 @@ int main(int argc, char **argv) {
     
     bcm_host_init();
     
+#ifdef FREEPLAY_USE_MUTEX
     pthread_mutex_init(&g_mtxCritSection, NULL);
+#endif
     
     display = vc_dispmanx_display_open(0);
     if (!display) {
@@ -189,7 +210,7 @@ int main(int argc, char **argv) {
         return -1;
     }
     syslog(LOG_INFO, "Freeplay-fbcp: Primary display is %d x %d", display_info.width, display_info.height);
-    printf("Freeplay-fbcp: Primary display is %d x %d\n", display_info.width, display_info.height);
+    //printf("Freeplay-fbcp: Primary display is %d x %d\n", display_info.width, display_info.height);
     
     
     fbfd = open("/dev/fb1", O_RDWR);
@@ -207,7 +228,7 @@ int main(int argc, char **argv) {
     }
     
     syslog(LOG_INFO, "Freeplay-fbcp: Second display is %d x %d %dbps\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
-    printf("Freeplay-fbcp: Second display is %d x %d %dbps\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+    //printf("Freeplay-fbcp: Second display is %d x %d %dbps\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
     
     //if vinfo.xres < vinfo.yres, then we are in portrait mode
     if(vinfo.xres < vinfo.yres)
@@ -220,7 +241,7 @@ int main(int argc, char **argv) {
     {
         rotate_screen = 1;
         syslog(LOG_INFO, "Set rotate_screen mode on.\n");
-        printf("Set rotate_screen mode on.\n");
+        //printf("Set rotate_screen mode on.\n");
     }
     
     
