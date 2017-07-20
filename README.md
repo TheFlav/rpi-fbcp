@@ -1,6 +1,7 @@
-Raspberry Pi Framebuffer Copy
-=============================
-This program used for copy primary framebuffer to secondary framebuffer (eg. FBTFT). It require lastest raspberry pi firmware (> 2013-07-11) to working properly.
+Raspberry Pi Framebuffer Copy For Freeplay Zero and Freeplay CM3
+================================================================
+
+This program is used to copy primary framebuffer (eg. HDMI) to secondary framebuffer (eg. FBTFT).
 
 Build
 -----
@@ -12,3 +13,11 @@ Build
     $ cmake ..
     
     $ make 
+
+Install
+-------
+    $ sudo cp Freeplay-fbcp /usr/local/bin
+
+    $ sudo cp fbcp.sh /etc/init.d/
+
+    $ sudo update-rc.d /etc/init.d/fbcp.sh defaults
