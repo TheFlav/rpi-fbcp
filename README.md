@@ -3,6 +3,8 @@ Raspberry Pi Framebuffer Copy For Freeplay Zero and Freeplay CM3
 
 This program is used to copy primary framebuffer (eg. HDMI) to secondary framebuffer (eg. FBTFT).
 
+Thanks to mrvanes for the callback-based fbcp functionality from https://github.com/mrvanes/rpi-fbcp
+
 Build
 -----
 
