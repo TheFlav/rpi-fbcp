@@ -87,10 +87,10 @@ int process() {
     uint8_t rotate_screen = 0;
     
     uint8_t overscan_screen = 1;
-    int scaled_w = 16*19;//16
-    int scaled_h = 208;//16*13;
-    int offset_x = 16;//14;
-    int offset_y = 6;
+    int scaled_w = 16*19;//304 (but seemingly needs to be in multiples of 16)
+    int scaled_h = 203;  //GBA viewport should be 3:2
+    int offset_x = 16;
+    int offset_y = 8;
     
     
     struct fb_var_screeninfo vinfo;
@@ -110,7 +110,7 @@ int process() {
         return -1;
     }
     syslog(LOG_INFO, "Primary display is %d x %d", display_info.width, display_info.height);
-    printf("Primary display is %d x %d\n", display_info.width, display_info.height);
+    //printf("Primary display is %d x %d\n", display_info.width, display_info.height);
     
     
     fbfd = open("/dev/fb1", O_RDWR);
@@ -128,7 +128,7 @@ int process() {
     }
     
     syslog(LOG_INFO, "Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
-    printf("Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+    //printf("Second display is %d x %d %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
     
     //if vinfo.xres < vinfo.yres, then we are in portrait mode
     if(vinfo.xres < vinfo.yres)
@@ -200,6 +200,15 @@ int process() {
             //snapshot the display
             ret = vc_dispmanx_snapshot(display, screen_resource, 0);
             
+            /*COULD MAYBE USE third param of vc_dispmanx_snapshot to set snapshot rotation
+             
+             Bottom 2 bits sets the orientation
+             DISPMANX_NO_ROTATE = 0,
+             DISPMANX_ROTATE_90 = 1,
+             DISPMANX_ROTATE_180 = 2,
+             DISPMANX_ROTATE_270 = 3,
+             */
+            
             //read data from snapshot into image_orig
             vc_dispmanx_resource_read_data(screen_resource, &rect1, image_orig, vinfo.yres * vinfo.bits_per_pixel / 8);
             
@@ -221,20 +230,6 @@ int process() {
     }
     else if(overscan_screen)
     {
-        /*
-         #overscan_left=60
-         #overscan_right=0
-         #overscan_top=26
-         #overscan_bottom=80
-         
-         
-         
-         
-         
-         320 - 60 		= 260
-         240 - 26 - 80 	= 134
-         */
-        
         
         vc_dispmanx_rect_set(&rect1, 0, 0, scaled_w, scaled_h);
         
