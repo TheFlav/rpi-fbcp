@@ -28,7 +28,9 @@
 #endif
 
 #ifndef FREEPLAY_INTERRUPT_DRIVEN
-#define FREEPLAY_MS_SLEEP 25
+//#define FREEPLAY_MS_SLEEP 25
+#define FREEPLAY_FPS 30
+#define FREEPLAY_FRAME_DURATION (1000000 / FREEPLAY_FPS)
 #endif
 
 #ifdef FREEPLAY_USE_MUTEX
@@ -429,7 +431,13 @@ int main(int argc, char **argv) {
     else
     {
 #ifdef FREEPLAY_INTERRUPT_DRIVEN
+#warning "FREEPLAY_INTERRUPT_DRIVEN Untested"
         vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport, NULL);
+#else
+        struct timeval start_time;
+        struct timeval end_time;
+        struct timeval elapsed_time;
+        //suseconds_t frameDuration =  1000000 / FREEPLAY_FPS;
 #endif
         unsigned int iter=0;
         wiringPiSetupGpio();
@@ -437,8 +445,9 @@ int main(int argc, char **argv) {
         pinMode(7, INPUT);//GPIO 7
         while(1)
         {
-            copy_screen_scale_to_viewport(NULL,NULL);
-            usleep(FREEPLAY_MS_SLEEP * 1000);
+#ifndef FREEPLAY_INTERRUPT_DRIVEN
+            gettimeofday(&start_time, NULL);
+            copy_screen_scale_to_viewport((DISPMANX_UPDATE_HANDLE_T)NULL,NULL);
             
             
             iter++;
@@ -456,6 +465,29 @@ int main(int argc, char **argv) {
                 
                 iter = 0;
             }
+            
+            gettimeofday(&end_time, NULL);
+            timersub(&end_time, &start_time, &elapsed_time);
+            
+            if (elapsed_time.tv_sec == 0)
+            {
+                if (elapsed_time.tv_usec < FREEPLAY_FRAME_DURATION)
+                {
+                    usleep(FREEPLAY_FRAME_DURATION -  elapsed_time.tv_usec);
+                }
+            }
+#else
+            sleep(5);
+            //test the battery low signal and set batt_low acordingly
+            if(!digitalRead(7))
+            {
+                batt_low = 1;
+            }
+            else
+            {
+                batt_low = 0;
+            }
+#endif
         }
     }
     
