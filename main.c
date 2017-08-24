@@ -29,7 +29,7 @@
 
 #ifndef FREEPLAY_INTERRUPT_DRIVEN
 //#define FREEPLAY_MS_SLEEP 25
-#define FREEPLAY_FPS 60
+#define FREEPLAY_FPS 120    //twice as fast as the HDMI 60FPS
 #define FREEPLAY_FRAME_DURATION (1000000 / FREEPLAY_FPS)
 #endif
 
