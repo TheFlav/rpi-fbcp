@@ -6,15 +6,14 @@
 #include <sys/time.h>
 
 #include <bcm_host.h>
-
-
+#include <libconfig.h>
 
 //If you want this code to be interrrupt driven, uncomment this next line.  Otherwise, you get a while(1) with a usleep inside
 //#define FREEPLAY_INTERRUPT_DRIVEN
 //interrupt-driven code seems to introduce a bit of video lag
 
 //If you want this code to do the screen scaling for the Freeplay Zero/CM3, uncomment this next line.  Otherwise use overscan in config.txt
-#define FREEPLAY_SCALE_TO_VIEWPORT
+int freeplay_scale_to_viewport = 1;
 //scaling code seems to introduce a bit of video lag
 
 //If you want this code to use Mutexes (shouldn't be necessary), uncomment this next line
@@ -23,14 +22,10 @@
 //If you want to include a low-battery indicator, uncomment this next line.
 #define FREEPLAY_INCLUDE_BATT_INDICATOR
 
-#if defined(FREEPLAY_INCLUDE_BATT_INDICATOR) && !defined(FREEPLAY_SCALE_TO_VIEWPORT)
-#error FREEPLAY_INCLUDE_BATT_INDICATOR requires FREEPLAY_SCALE_TO_VIEWPORT
-#endif
-
 #ifndef FREEPLAY_INTERRUPT_DRIVEN
 //#define FREEPLAY_MS_SLEEP 25
-#define FREEPLAY_FPS 120    //twice as fast as the HDMI 60FPS
-#define FREEPLAY_FRAME_DURATION (1000000 / FREEPLAY_FPS)
+#define _FREEPLAY_FPS 120    //twice as fast as the HDMI 60FPS
+int freeplay_fps = _FREEPLAY_FPS;
 #endif
 
 #ifdef FREEPLAY_USE_MUTEX
@@ -136,11 +131,15 @@ pthread_mutex_t g_mtxCritSection;
 #endif
 
 
-#ifdef FREEPLAY_SCALE_TO_VIEWPORT
-#define FREEPLAY_SCALED_W  (16*19)  //304 (but seemingly needs to be in multiples of 16)
-#define FREEPLAY_SCALED_H 203       //GBA viewport should be 3:2
-#define FREEPLAY_SCALED_OFFSET_X 16
-#define FREEPLAY_SCALED_OFFSET_Y 8
+#define _FREEPLAY_SCALED_W  (16*19)  //304 (but seemingly needs to be in multiples of 16)
+#define _FREEPLAY_SCALED_H 203       //GBA viewport should be 3:2
+#define _FREEPLAY_SCALED_OFFSET_X 16
+#define _FREEPLAY_SCALED_OFFSET_Y 8
+
+int freeplay_scaled_w = _FREEPLAY_SCALED_W;
+int freeplay_scaled_h = _FREEPLAY_SCALED_H;
+int freeplay_scaled_offset_x = _FREEPLAY_SCALED_OFFSET_X;
+int freeplay_scaled_offset_y = _FREEPLAY_SCALED_OFFSET_Y;
 
 void *image_scaled = NULL;  //calloc( 1, scaled_w * scaled_h * vinfo.bits_per_pixel / 8 );
 void *image_fb_temp = NULL;  //calloc( 1, vinfo.yres * vinfo.xres * vinfo.bits_per_pixel / 8 );
@@ -214,7 +213,7 @@ void copy_screen_scale_to_viewport(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
     ret = vc_dispmanx_snapshot(display, screen_resource, 0);
     
     //read data (and scale) from snapshot into image_scaled
-    vc_dispmanx_resource_read_data(screen_resource, &rect1, image_scaled, FREEPLAY_SCALED_W * vinfo.bits_per_pixel / 8);
+    vc_dispmanx_resource_read_data(screen_resource, &rect1, image_scaled, freeplay_scaled_w * vinfo.bits_per_pixel / 8);
     
     
     //no rotation means that the LCD hardware/driver is handling the rotation
@@ -223,7 +222,7 @@ void copy_screen_scale_to_viewport(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
     //yres is the height of the LCD in landscape mode (240)
     
     //no rotation, so just push the data to the proper area of the LCD (fbp)
-    copy_16bpp_offset((uint16_t *)image_scaled, (uint16_t *)fbp,           FREEPLAY_SCALED_W, FREEPLAY_SCALED_H, FREEPLAY_SCALED_OFFSET_X, FREEPLAY_SCALED_OFFSET_Y, vinfo.xres, vinfo.yres);
+    copy_16bpp_offset((uint16_t *)image_scaled, (uint16_t *)fbp,           freeplay_scaled_w, freeplay_scaled_h, freeplay_scaled_offset_x, freeplay_scaled_offset_y, vinfo.xres, vinfo.yres);
     
     
 #ifdef FREEPLAY_INCLUDE_BATT_INDICATOR
@@ -236,7 +235,7 @@ void copy_screen_scale_to_viewport(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
             for(y = 0; y < 32; y++)
             {
                 //32x32
-                memcpy((uint16_t *)fbp + (320*(y+FREEPLAY_SCALED_OFFSET_Y)+(320-32)), battery_low_32x32_white_bkg + (32*y), 32*2);
+                memcpy((uint16_t *)fbp + (320*(y+freeplay_scaled_offset_y)+(320-32)), battery_low_32x32_white_bkg + (32*y), 32*2);
             }
         }
         
@@ -246,7 +245,6 @@ void copy_screen_scale_to_viewport(DISPMANX_UPDATE_HANDLE_T handle, void* arg) {
             batt_low_counter = 0;
         
     }
-#endif
     
 #ifdef FREEPLAY_INTERRUPT_DRIVEN
     vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport, NULL);
@@ -274,7 +272,7 @@ void copy_screen_scale_to_viewport_and_rotate(DISPMANX_UPDATE_HANDLE_T handle, v
     ret = vc_dispmanx_snapshot(display, screen_resource, 0);
     
     //read data (and scale) from snapshot into image_scaled
-    vc_dispmanx_resource_read_data(screen_resource, &rect1, image_scaled, FREEPLAY_SCALED_W * vinfo.bits_per_pixel / 8);
+    vc_dispmanx_resource_read_data(screen_resource, &rect1, image_scaled, freeplay_scaled_w * vinfo.bits_per_pixel / 8);
     
     //this mode is where we are rotating the image here in software
     
@@ -282,7 +280,7 @@ void copy_screen_scale_to_viewport_and_rotate(DISPMANX_UPDATE_HANDLE_T handle, v
     //in rotation mode, yres is the height of the LCD in portrait mode (320)
     
     //copy from scaled image to image_fb_temp
-    copy_16bpp_offset((uint16_t *)image_scaled, (uint16_t *)image_fb_temp, FREEPLAY_SCALED_W, FREEPLAY_SCALED_H, FREEPLAY_SCALED_OFFSET_X, FREEPLAY_SCALED_OFFSET_Y, vinfo.yres, vinfo.xres);
+    copy_16bpp_offset((uint16_t *)image_scaled, (uint16_t *)image_fb_temp, freeplay_scaled_w, freeplay_scaled_h, freeplay_scaled_offset_x, freeplay_scaled_offset_y, vinfo.yres, vinfo.xres);
     
     //rotate image_fb_temp to the LCD (fbp)
     rotate90_16bpp((uint16_t *)image_fb_temp, (uint16_t *)fbp, vinfo.yres, vinfo.xres);
@@ -300,7 +298,6 @@ void copy_screen_scale_to_viewport_and_rotate(DISPMANX_UPDATE_HANDLE_T handle, v
     
 }
 
-#else
 
 #ifdef FREEPLAY_INTERRUPT_DRIVEN
 inline
@@ -334,6 +331,27 @@ int main(int argc, char **argv) {
     uint8_t portrait_mode_pri = 0;
     uint8_t portrait_mode_sec = 0;
     uint8_t rotate_screen = 0;
+    
+    config_t cfg;               /*Returns all parameters in this structure */
+    
+    char *config_file_name = argv[1];
+    
+    config_init(&cfg);
+    /* Read the file. If there is an error, report it and exit. */
+    if (!config_read_file(&cfg, config_file_name))
+    {
+        printf("\n%s:%d - %s", config_error_file(&cfg), config_error_line(&cfg), config_error_text(&cfg));
+        config_destroy(&cfg);
+        return -1;
+    }
+    
+    /* Get the configuration params. */
+    config_lookup_int(&cfg, "FREEPLAY_FPS", &freeplay_fps);
+    config_lookup_int(&cfg, "FREEPLAY_SCALED_W", &freeplay_scaled_w);
+    config_lookup_int(&cfg, "FREEPLAY_SCALED_H", &freeplay_scaled_h);
+    config_lookup_int(&cfg, "FREEPLAY_SCALED_OFFSET_X", &freeplay_scaled_offset_x);
+    config_lookup_int(&cfg, "FREEPLAY_SCALED_OFFSET_Y", &freeplay_scaled_offset_y);
+    config_lookup_int(&cfg, "FREEPLAY_SCALE_TO_VIEWPORT", &freeplay_scale_to_viewport);
     
     bcm_host_init();
     
@@ -397,62 +415,89 @@ int main(int argc, char **argv) {
     }
     
     
-#ifdef FREEPLAY_SCALE_TO_VIEWPORT
-    image_scaled = calloc( 1, FREEPLAY_SCALED_W * FREEPLAY_SCALED_H * vinfo.bits_per_pixel / 8 );
-    if(!image_scaled)
-        return -1;
     
-    if(rotate_screen)
+    if(freeplay_scale_to_viewport)
     {
-        image_fb_temp = calloc( 1, vinfo.yres * vinfo.xres * vinfo.bits_per_pixel / 8 );
-        if(!image_fb_temp)
+        image_scaled = calloc( 1, freeplay_scaled_w * freeplay_scaled_h * vinfo.bits_per_pixel / 8 );
+        if(!image_scaled)
             return -1;
-    }
-    
-    
-    vc_dispmanx_rect_set(&rect1, 0, 0, FREEPLAY_SCALED_W, FREEPLAY_SCALED_H);
-    
-    screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, FREEPLAY_SCALED_W, FREEPLAY_SCALED_H, &image_prt);
-    if (!screen_resource) {
-        syslog(LOG_ERR, "Unable to create screen buffer");
-        close(fbfd);
-        vc_dispmanx_display_close(display);
-        return -1;
-    }
-    
-    // Initialise callback
-    if(rotate_screen)
-    {
+        
+        if(rotate_screen)
+        {
+            image_fb_temp = calloc( 1, vinfo.yres * vinfo.xres * vinfo.bits_per_pixel / 8 );
+            if(!image_fb_temp)
+                return -1;
+        }
+        
+        
+        vc_dispmanx_rect_set(&rect1, 0, 0, freeplay_scaled_w, freeplay_scaled_h);
+        
+        screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, freeplay_scaled_w, freeplay_scaled_h, &image_prt);
+        if (!screen_resource) {
+            syslog(LOG_ERR, "Unable to create screen buffer");
+            close(fbfd);
+            vc_dispmanx_display_close(display);
+            return -1;
+        }
+        
+        // Initialise callback
+        if(rotate_screen)
+        {
 #ifdef FREEPLAY_INTERRUPT_DRIVEN
-        vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport_and_rotate, NULL);
+            vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport_and_rotate, NULL);
 #endif
-        printf("ROTATION DOES NOT CURRENTLY WORK! (EXITING)\n");
-    }
-    else
-    {
+            printf("ROTATION DOES NOT CURRENTLY WORK! (EXITING)\n");
+        }
+        else
+        {
 #ifdef FREEPLAY_INTERRUPT_DRIVEN
 #warning "FREEPLAY_INTERRUPT_DRIVEN Untested"
-        vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport, NULL);
+            vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen_scale_to_viewport, NULL);
 #else
-        struct timeval start_time;
-        struct timeval end_time;
-        struct timeval elapsed_time;
-        //suseconds_t frameDuration =  1000000 / FREEPLAY_FPS;
+            struct timeval start_time;
+            struct timeval end_time;
+            struct timeval elapsed_time;
+            suseconds_t frame_duration =  1000000 / freeplay_fps;
 #endif
-        unsigned int iter=0;
-        wiringPiSetupGpio();
-        
-        pinMode(7, INPUT);//GPIO 7
-        while(1)
-        {
-#ifndef FREEPLAY_INTERRUPT_DRIVEN
-            gettimeofday(&start_time, NULL);
-            copy_screen_scale_to_viewport((DISPMANX_UPDATE_HANDLE_T)NULL,NULL);
+            unsigned int iter=0;
+            wiringPiSetupGpio();
             
-            
-            iter++;
-            if(iter >= (5 * 60))//about every 5s
+            pinMode(7, INPUT);//GPIO 7
+            while(1)
             {
+#ifndef FREEPLAY_INTERRUPT_DRIVEN
+                gettimeofday(&start_time, NULL);
+                copy_screen_scale_to_viewport((DISPMANX_UPDATE_HANDLE_T)NULL,NULL);
+                
+                
+                iter++;
+                if(iter >= (5 * 60))//about every 5s
+                {
+                    //test the battery low signal and set batt_low acordingly
+                    if(!digitalRead(7))
+                    {
+                        batt_low = 1;
+                    }
+                    else
+                    {
+                        batt_low = 0;
+                    }
+                    
+                    iter = 0;
+                }
+                
+                gettimeofday(&end_time, NULL);
+                timersub(&end_time, &start_time, &elapsed_time);
+                
+                if (elapsed_time.tv_sec == 0)
+                {
+                    if (elapsed_time.tv_usec < frame_duration)
+                    {
+                        usleep(frame_duration -  elapsed_time.tv_usec);
+                    }
+                }
+#else
+                sleep(5);
                 //test the battery low signal and set batt_low acordingly
                 if(!digitalRead(7))
                 {
@@ -462,59 +507,51 @@ int main(int argc, char **argv) {
                 {
                     batt_low = 0;
                 }
-                
-                iter = 0;
+#endif
             }
+        }
+    }
+    else
+    {
+        struct timeval start_time;
+        struct timeval end_time;
+        struct timeval elapsed_time;
+        suseconds_t frame_duration =  1000000 / freeplay_fps;
+        
+        vc_dispmanx_rect_set(&rect1, 0, 0, vinfo.xres, vinfo.yres);
+        
+        screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, vinfo.xres, vinfo.yres, &image_prt);
+        if (!screen_resource) {
+            syslog(LOG_ERR, "Unable to create screen buffer");
+            close(fbfd);
+            vc_dispmanx_display_close(display);
+            return -1;
+        }
+        
+#ifdef FREEPLAY_INTERRUPT_DRIVEN
+        // Initialise callback
+        vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen, NULL);
+#else
+        while(1)
+        {
+            gettimeofday(&start_time, NULL);
+            copy_screen(NULL,NULL);
             
             gettimeofday(&end_time, NULL);
             timersub(&end_time, &start_time, &elapsed_time);
             
             if (elapsed_time.tv_sec == 0)
             {
-                if (elapsed_time.tv_usec < FREEPLAY_FRAME_DURATION)
+                if (elapsed_time.tv_usec < frame_duration)
                 {
-                    usleep(FREEPLAY_FRAME_DURATION -  elapsed_time.tv_usec);
+                    usleep(frame_duration -  elapsed_time.tv_usec);
                 }
             }
-#else
-            sleep(5);
-            //test the battery low signal and set batt_low acordingly
-            if(!digitalRead(7))
-            {
-                batt_low = 1;
-            }
-            else
-            {
-                batt_low = 0;
-            }
-#endif
+            //        usleep(FREEPLAY_MS_SLEEP * 1000);
         }
-    }
-    
-#else
-    
-    vc_dispmanx_rect_set(&rect1, 0, 0, vinfo.xres, vinfo.yres);
-    
-    screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, vinfo.xres, vinfo.yres, &image_prt);
-    if (!screen_resource) {
-        syslog(LOG_ERR, "Unable to create screen buffer");
-        close(fbfd);
-        vc_dispmanx_display_close(display);
-        return -1;
-    }
-    
-#ifdef FREEPLAY_INTERRUPT_DRIVEN
-    // Initialise callback
-    vc_dispmanx_vsync_callback(display, (DISPMANX_CALLBACK_FUNC_T)copy_screen, NULL);
-#else
-    while(1)
-    {
-        copy_screen(NULL,NULL);
-        usleep(FREEPLAY_MS_SLEEP * 1000);
-    }
 #endif
-    
-#endif
+        
+    }
     
     // Do nothing
     //pause();
