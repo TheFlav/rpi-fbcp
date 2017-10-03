@@ -12,7 +12,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Framebuffer copy daemon"
 NAME=Freeplay-fbcp
 DAEMON=/usr/local/bin/Freeplay-fbcp
-DAEMON_ARGS=""
+DAEMON_ARGS="/boot/freeplayfbcp.cfg"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 # Exit if the package is not installed
