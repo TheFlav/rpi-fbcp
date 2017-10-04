@@ -5,6 +5,11 @@ This program is used to copy primary framebuffer (eg. HDMI) to secondary framebu
 
 Thanks to mrvanes for the callback-based fbcp functionality from https://github.com/mrvanes/rpi-fbcp
 
+
+Prerequisites
+-------------
+    $ sudo apt-get install wiringpi libconfig-dev
+
 Build
 -----
 
@@ -14,11 +19,13 @@ Build
     
     $ cmake ..
     
-    $ make 
+    $ make
+
+    $ cd ..
 
 Install
 -------
-    $ sudo cp Freeplay-fbcp /usr/local/bin
+    $ sudo cp build/Freeplay-fbcp /usr/local/bin
 
     $ sudo cp freeplayfbcp.cfg /boot
 
