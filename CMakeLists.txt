@@ -21,4 +21,4 @@ link_directories(/opt/vc/lib)
 
 add_executable(Freeplay-fbcp main.c)
 
-target_link_libraries(Freeplay-fbcp bcm_host wiringPi)
+target_link_libraries(Freeplay-fbcp bcm_host wiringPi config)
