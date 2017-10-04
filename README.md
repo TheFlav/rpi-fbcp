@@ -20,6 +20,12 @@ Install
 -------
     $ sudo cp Freeplay-fbcp /usr/local/bin
 
+    $ sudo cp freeplayfbcp.cfg /boot
+
     $ sudo cp fbcp.sh /etc/init.d/
 
     $ sudo update-rc.d /etc/init.d/fbcp.sh defaults
+
+Config
+------
+    $ sudo nano /boot/freeplayfbcp.cfg
