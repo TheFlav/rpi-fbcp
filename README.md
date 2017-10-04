@@ -29,3 +29,5 @@ Install
 Config
 ------
     $ sudo nano /boot/freeplayfbcp.cfg
+
+    $ sudo service fbcp restart
