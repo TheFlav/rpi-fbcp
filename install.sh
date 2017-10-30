@@ -11,3 +11,4 @@ sudo cp freeplayfbcp.cfg /boot
 sudo cp fbcp.sh /etc/init.d/
 sudo update-rc.d fbcp.sh defaults
 sudo service fbcp restart
+sudo systemctl daemon-reload
