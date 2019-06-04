@@ -4,6 +4,7 @@
 #include <linux/fb.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 
 #include <bcm_host.h>
 #include <libconfig.h>
@@ -535,7 +536,7 @@ int main(int argc, char **argv) {
         while(1)
         {
             gettimeofday(&start_time, NULL);
-            copy_screen(NULL,NULL);
+            copy_screen((int)NULL,NULL);
             
             gettimeofday(&end_time, NULL);
             timersub(&end_time, &start_time, &elapsed_time);
@@ -584,5 +585,5 @@ int main(int argc, char **argv) {
     vc_dispmanx_vsync_callback(display, NULL, NULL);
     vc_dispmanx_display_close(display);
     
-    return;
+    return 0;
 }
