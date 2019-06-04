@@ -6,6 +6,7 @@ cmake ..
 make
 cd ..
 sudo service fbcp stop
+sudo cp waveshare32b-fp.dtbo /boot/overlays/waveshare32b.dtbo
 sudo cp build/Freeplay-fbcp /usr/local/bin
 sudo cp freeplayfbcp.cfg /boot
 sudo cp fbcp.sh /etc/init.d/
