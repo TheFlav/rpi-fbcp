@@ -9,6 +9,7 @@ sudo service fbcp stop
 sudo cp waveshare32b-fp.dtbo /boot/overlays/waveshare32b.dtbo
 sudo cp build/Freeplay-fbcp /usr/local/bin
 sudo cp freeplayfbcp.cfg /boot
+chmod a+x fbcp.sh
 sudo cp fbcp.sh /etc/init.d/
 sudo update-rc.d fbcp.sh defaults
 sudo service fbcp restart
